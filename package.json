@@ -1,0 +1,10 @@
+{
+  "name": "spillway-designer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ogee spillway design tool: reference notebook plus a browser app",
+  "scripts": {
+    "test": "node tests/engine.test.js"
+  },
+  "license": "MIT"
+}

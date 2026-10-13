@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spillway Designer</title>
+<meta name="description" content="Design an ogee spillway and watch the water: crest head, WES profile, chute flow, hydraulic jump, tailwater, gates, piers and baffled stilling basins.">
+<style>
+:root {
+  --bg: #e6eaed; --panel: #f6f8f9; --ink: #15242d; --muted: #566872; --line: #c5cfd5;
+  --accent: #0b6aa5; --accent-ink: #ffffff; --warn: #a85a07; --warn-bg: #fbeedd; --info-bg: #e2eff7;
+  --sky: #f3f7f9; --water-top: #9ad3f2; --water-deep: #2f8cc4; --water-line: #14639a;
+  --concrete: #bcb7ad; --concrete-line: #6c665b; --rock: #9a9486; --rock-line: #6c665b;
+  --gate: #d9822b; --block: #5b564c; --foam: #ffffff; --dim: #b4521f;
+  --radius: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f171c; --panel: #162229; --ink: #e3ecf0; --muted: #94a7b1; --line: #2a3a43;
+    --accent: #5cb4ea; --accent-ink: #06222f; --warn: #f0a85a; --warn-bg: #3a2a15; --info-bg: #14303f;
+    --sky: #0c1317; --water-top: #3d86ad; --water-deep: #12456a; --water-line: #7fcdf2;
+    --concrete: #7d786e; --concrete-line: #aaa496; --rock: #4a463e; --rock-line: #8e887b;
+    --gate: #e59a4a; --block: #cfc9bb; --foam: #e9f6ff; --dim: #f08a5a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.45 "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 14px 20px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.top h1 { font-size: 20px; }
+.top p { margin: 0; color: var(--muted); font-size: 14px; }
+.top .spacer { flex: 1; }
+
+.app { display: grid; gap: 0; grid-template-columns: 300px minmax(0, 1fr) 320px; grid-template-areas: "rail stage results"; align-items: start; }
+.rail { grid-area: rail; padding: 14px 18px 24px; border-right: 1px solid var(--line); background: var(--panel); }
+.stage { grid-area: stage; padding: 14px 16px 24px; min-width: 0; }
+.results { grid-area: results; padding: 14px 18px 24px; border-left: 1px solid var(--line); background: var(--panel); }
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 300px minmax(0, 1fr); grid-template-areas: "rail stage" "rail results"; }
+  .results { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "rail" "results"; }
+  .rail { border-right: 0; border-top: 1px solid var(--line); }
+  .top, .stage, .rail, .results { padding-left: 16px; padding-right: 16px; }
+}
+
+/* controls */
+.group { padding: 12px 0 14px; border-bottom: 1px solid var(--line); }
+.group:last-of-type { border-bottom: 0; }
+.group h2 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin-bottom: 10px; }
+.ctl label { font-size: 14px; }
+.ctl .num { display: flex; align-items: center; gap: 4px; }
+.ctl input[type=number] { width: 78px; padding: 3px 6px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); text-align: right; }
+.ctl .unit { color: var(--muted); font-size: 12px; min-width: 30px; }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.btn { border: 1px solid var(--line); background: var(--bg); border-radius: var(--radius); padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.row .lbl { font-size: 14px; margin-right: 4px; }
+.check { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 14px; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+select { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 6px; }
+
+/* stage */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.toolbar .spacer { flex: 1; }
+.toolbar label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.canvaswrap { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--sky); }
+#scene { display: block; width: 100%; height: clamp(300px, 52vh, 560px); }
+.chips { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.chip { background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+.below { margin-top: 18px; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+.panel h2 { font-size: 15px; margin-bottom: 6px; }
+#rating { display: block; width: 100%; height: 260px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sky); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+
+/* results */
+.hero { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.hero div span { display: block; font-size: 12.5px; color: var(--muted); }
+.hero div b { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.hero div small { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+.sec { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.sec h3 { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.sec dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; }
+.sec dt { color: var(--ink); font-size: 14px; }
+.sec dd { margin: 0; text-align: right; font-size: 14px; }
+.sec dd small { color: var(--muted); }
+.notes { padding-top: 12px; display: grid; gap: 8px; }
+.note { padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--info-bg); border-radius: 0 var(--radius) var(--radius) 0; font-size: 13.5px; }
+.note.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.downloads { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 14px; }
+footer { padding: 16px 20px 28px; color: var(--muted); font-size: 13px; max-width: 980px; }
+footer p { margin: 0 0 6px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Spillway Designer</h1>
+  <p>Ogee spillway, free or gated, with chute, hydraulic jump and stilling basin</p>
+  <span class="spacer"></span>
+  <button class="btn" id="reset" type="button">Reset to defaults</button>
+</header>
+
+<main class="app">
+  <aside class="rail" aria-label="Inputs" id="rail"></aside>
+
+  <section class="stage" aria-label="Spillway profile">
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="View" id="views">
+        <button type="button" data-view="all" aria-pressed="true">Whole spillway</button>
+        <button type="button" data-view="crest" aria-pressed="false">Crest</button>
+        <button type="button" data-view="basin" aria-pressed="false">Basin</button>
+      </div>
+      <button class="btn" id="play" type="button" aria-pressed="true">Pause</button>
+      <label>Speed
+        <select id="speed" aria-label="Animation speed">
+          <option value="0.4">0.4×</option><option value="1" selected>1×</option><option value="2">2×</option>
+        </select>
+      </label>
+      <span class="spacer"></span>
+    </div>
+    <div class="canvaswrap">
+      <canvas id="scene" role="img" aria-label="Spillway profile with flowing water"></canvas>
+      <div class="chips" id="chips"></div>
+    </div>
+    <p class="sr" id="live" aria-live="polite"></p>
+    <div class="below">
+      <div class="panel">
+        <h2>Rating curve</h2>
+        <canvas id="rating" role="img" aria-label="Pool level against discharge"></canvas>
+        <div class="legend" id="ratingLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="results" aria-label="Results" id="results"></aside>
+</main>
+
+<footer>
+  <p>Preliminary-design tool. Coefficient tables are approximate readings of USACE and USBR charts, the flow is one-dimensional with no air entrainment, and tailwater is an input. The reference calculation is in <code>notebook/spillway_design.ipynb</code>; this page matches it to six significant figures (see <code>tests/</code>).</p>
+  <p>Check results against EM 1110-2-1603 and USBR EM-25 before using them for a real structure.</p>
+</footer>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
